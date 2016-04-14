@@ -18,8 +18,8 @@
 #define DNA_ALPHA "acgt"
 #define DUMMY_SYM '$'
 
-
-typedef std::bitset<NUM_COLS> color_bv;
+typedef unsigned coverage_t;
+typedef std::vector<unsigned> color_bv;
 //FIXME: find a way to make NUM_COLS not be compile time.
 // http://en.cppreference.com/w/cpp/utility/bitset says:
 // "Notes: If the size of the bitset is not known at compile time, std::vector<bool> or boost::dynamic_bitset may be used."

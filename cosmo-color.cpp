@@ -98,8 +98,8 @@ void dump_edges(debruijn_graph<> dbg, uint64_t * colors) {
 }
 
 const char *const starts[] = {"GCCATACTGCGTCATGTCGCCCTGACGCGC","GCAGGTTCGAATCCTGCACGACCCACCAAT","GCTTAACCTCACAACCCGAAGATGTTTCTT","AAAACCCGCCGAAGCGGGTTTTTACGTAAA","AATCCTGCACGACCCACCAGTTTTAACATC","AGAGTTCCCCGCGCCAGCGGGGATAAACCG","GAATACGTGCGCAACAACCGTCTTCCGGAG"};
-    
-void find_bubbles(debruijn_graph<> dbg, rrr_vector<63> &colors, color_bv color_mask1, color_bv color_mask2)
+typedef std::bitset<NUM_COLS>     real_color_bv;
+void find_bubbles(debruijn_graph<> dbg, rrr_vector<63> &colors, real_color_bv color_mask1, real_color_bv color_mask2)
 {
     int t = getMilliCount();
     int num_colors = colors.size() / dbg.num_edges();
@@ -129,7 +129,7 @@ void find_bubbles(debruijn_graph<> dbg, rrr_vector<63> &colors, color_bv color_m
             branch[1].clear();
 
             int branch_offset = 0;
-            color_bv branch_color[2];
+            real_color_bv branch_color[2];
 
 
             // start of a bubble handling
@@ -140,7 +140,7 @@ void find_bubbles(debruijn_graph<> dbg, rrr_vector<63> &colors, color_bv color_m
                     continue;
                 branch[branch_num] += base[x];
                 // build color mask
-                color_bv color_mask = 0;
+                real_color_bv color_mask = 0;
                 for (int c = 0; c < num_colors; c++)
                     color_mask |= colors[edge * num_colors + c] << c;
                 branch_color[branch_num] = color_mask;
@@ -166,7 +166,7 @@ void find_bubbles(debruijn_graph<> dbg, rrr_vector<63> &colors, color_bv color_m
                     std::cerr << "outgoing bases: ";
                     for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) { // iterate through the alphabet
                         next_edge = dbg.outgoing_edge(pos, x2);
-                        color_bv color_mask = 0;
+                        real_color_bv color_mask = 0;
 
                         if (next_edge != -1) {
                             for (int c = 0; c < num_colors; c++)
@@ -238,7 +238,7 @@ int main(int argc, char* argv[]) {
 
   //dump_nodes(dbg, colors);
   //dump_edges(dbg, colors);
-  color_bv mask1 = (p.color_mask1.length() > 0) ? atoi(p.color_mask1.c_str()) : -1;
-  color_bv mask2 = (p.color_mask2.length() > 0) ? atoi(p.color_mask2.c_str()) : -1;
+  real_color_bv mask1 = (p.color_mask1.length() > 0) ? atoi(p.color_mask1.c_str()) : -1;
+  real_color_bv mask2 = (p.color_mask2.length() > 0) ? atoi(p.color_mask2.c_str()) : -1;
   find_bubbles(dbg, colors, mask1, mask2);
 }
