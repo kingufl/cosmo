@@ -192,9 +192,11 @@ void parse_arguments(int argc, char **argv, parameters_t & params)
   params.kmc          = kmc_arg.getValue();
   params.cortex = cortex_arg.getValue();
 }
-void serialize_color_bv(std::ofstream &cfs, const color_bv &color)//std::vector<color_bv>::iterator &colors, uint64_t index)
+void serialize_color_bv(std::ofstream &cfs, const color_bv &color, unsigned num_colors)//std::vector<color_bv>::iterator &colors, uint64_t index)
 {
-    cfs.write((char *)&color, sizeof(color_bv)); //FIXME: Is this the right way to serailize std::bitset?
+    for (int i = num_colors -1; i >= 0; --i) {
+        cfs.write((char *)&color[i], sizeof(color_bv[i])); //FIXME: Is this the right endianness that SDSL-lite expects
+    }
 }
 
 #ifdef ADD_REVCOMPS
@@ -417,12 +419,12 @@ int main(int argc, char * argv[])
 #endif
                     if (tag == standard) {
                         // cerr << kmer_to_string(x, k, this_k) << "c" << colors[index] << "\n";
-                        serialize_color_bv(cfs, colors[index++]);
+                        serialize_color_bv(cfs, colors[index++], num_colors);
                         //cfs.write((char *)&colors[index++], sizeof(uint64_t));
                     }
                     else {
                         //uint64_t ones = -1;
-                        serialize_color_bv(cfs, ones);
+                        serialize_color_bv(cfs, ones, num_colors);
                             //assert(!"Not converted to color_bv yet!");
                         //cfs.write((char *)&ones, sizeof(uint64_t));
                     }
@@ -444,12 +446,12 @@ int main(int argc, char * argv[])
 #endif
                     if (tag == standard) {
                         // cerr << kmer_to_string(x, k, this_k) << "c" << colors[index] << "\n";
-                        serialize_color_bv(cfs, colors[index++]);
+                        serialize_color_bv(cfs, colors[index++], num_colors);
                         //cfs.write((char *)&colors[index++], sizeof(uint64_t));
                     }
                     else {
                         //uint64_t ones = -1;
-                        serialize_color_bv(cfs, ones);
+                        serialize_color_bv(cfs, ones, num_colors);
                             //assert(!"Not converted to color_bv yet!");
                         //cfs.write((char *)&ones, sizeof(uint64_t));
                     }

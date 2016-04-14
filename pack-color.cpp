@@ -67,9 +67,12 @@ void parse_arguments(int argc, char **argv, parameters_t & params)
 
 }
 
-void deserialize_color_bv(ifstream &colorfile, color_bv &value)
+void deserialize_color_bv(ifstream &colorfile, color_bv &value, unsigned num_colors)
+    
 {
-      colorfile.read((char *)&value, sizeof(color_bv));
+    for (int i = num_colors -1; i >= 0; --i) {
+        colorfile.read((char *)&value[i], sizeof(color_bv[i]));
+    }
 }
 
 int main(int argc, char * argv[]) {
@@ -94,7 +97,7 @@ int main(int argc, char * argv[]) {
   size_t cnt1 = 0;
   for (size_t i=0; i < num_edges; i++) {
       color_bv value;
-      deserialize_color_bv(colorfile, value);
+      deserialize_color_bv(colorfile, value, num_color);
       for (size_t j=0; j < num_color; j++) {
           b[i*num_color + j] = value[j];
           if (b[i*num_color + j] == 0)
