@@ -99,7 +99,7 @@ void dump_edges(debruijn_graph<> dbg, uint64_t * colors) {
 
 const char *const starts[] = {"GCCATACTGCGTCATGTCGCCCTGACGCGC","GCAGGTTCGAATCCTGCACGACCCACCAAT","GCTTAACCTCACAACCCGAAGATGTTTCTT","AAAACCCGCCGAAGCGGGTTTTTACGTAAA","AATCCTGCACGACCCACCAGTTTTAACATC","AGAGTTCCCCGCGCCAGCGGGGATAAACCG","GAATACGTGCGCAACAACCGTCTTCCGGAG"};
     
-void find_bubbles(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t color_mask1, uint64_t color_mask2)
+void find_bubbles(debruijn_graph<> dbg, rrr_vector<63> &colors, color_bv color_mask1, color_bv color_mask2)
 {
     int t = getMilliCount();
     int num_colors = colors.size() / dbg.num_edges();
@@ -129,7 +129,7 @@ void find_bubbles(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t color_m
             branch[1].clear();
 
             int branch_offset = 0;
-            uint64_t branch_color[2];
+            color_bv branch_color[2];
 
 
             // start of a bubble handling
@@ -140,7 +140,7 @@ void find_bubbles(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t color_m
                     continue;
                 branch[branch_num] += base[x];
                 // build color mask
-                uint64_t color_mask = 0;
+                color_bv color_mask = 0;
                 for (int c = 0; c < num_colors; c++)
                     color_mask |= colors[edge * num_colors + c] << c;
                 branch_color[branch_num] = color_mask;
@@ -166,11 +166,11 @@ void find_bubbles(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t color_m
                     std::cerr << "outgoing bases: ";
                     for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) { // iterate through the alphabet
                         next_edge = dbg.outgoing_edge(pos, x2);
-                        uint64_t color_mask = 0;
+                        color_bv color_mask = 0;
 
                         if (next_edge != -1) {
                             for (int c = 0; c < num_colors; c++)
-                                color_mask |= colors[next_edge * num_colors + c] << c;
+                                color_mask |= (~(colors[next_edge * num_colors + c])) << c;
 
 
                             std::cerr << base[x2] << " (c " << color_mask << ") (p " << dbg._edge_to_node(next_edge) << ")" << std::endl;
@@ -198,10 +198,10 @@ void find_bubbles(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t color_m
             if ((end[0] && end[0] == end[1]) ) {
                 if (found_miss)  std::cerr << "Missing bubble passed end check" << std::endl;
                 // check color:
-                if (true || ((color_mask1 & branch_color[0] && !(~color_mask1 & branch_color[0]) &&
-                  color_mask2 & branch_color[1] && !(~color_mask2 & branch_color[1])) || 
-                 (color_mask1 & branch_color[1] && !(~color_mask1 & branch_color[1]) &&
-                  color_mask2 & branch_color[0] && !(~color_mask2 & branch_color[0])))) {
+                if (true || (((color_mask1 & branch_color[0]).count() && !(~color_mask1 & branch_color[0]).count() &&
+                              (color_mask2 & branch_color[1]).count() && !(~color_mask2 & branch_color[1]).count()) || 
+                             ((color_mask1 & branch_color[1]).count() && !(~color_mask1 & branch_color[1]).count() &&
+                              (color_mask2 & branch_color[0]).count() && !(~color_mask2 & branch_color[0]).count() ))) {
                     cout << "\nStart flank: " << dbg.node_label(start) << " c: " << branch_color[0] << ":" << branch_color[1] << "\n";
                     cout << "Branch: " << branch[0] << "\n";
                     cout << "Branch: " << branch[1] << "\n";
@@ -238,7 +238,7 @@ int main(int argc, char* argv[]) {
 
   //dump_nodes(dbg, colors);
   //dump_edges(dbg, colors);
-  uint64_t mask1 = (p.color_mask1.length() > 0) ? atoi(p.color_mask1.c_str()) : -1;
-  uint64_t mask2 = (p.color_mask2.length() > 0) ? atoi(p.color_mask2.c_str()) : -1;
+  color_bv mask1 = (p.color_mask1.length() > 0) ? atoi(p.color_mask1.c_str()) : -1;
+  color_bv mask2 = (p.color_mask2.length() > 0) ? atoi(p.color_mask2.c_str()) : -1;
   find_bubbles(dbg, colors, mask1, mask2);
 }
