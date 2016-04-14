@@ -6,6 +6,11 @@
 #include "tclap/CmdLine.h"
 
 #include <sdsl/bit_vectors.hpp>
+#include <sdsl/enc_vector.hpp>
+//#include <sdsl/construct.hpp>
+#include <sdsl/suffix_arrays.hpp>
+
+
 
 // C STDLIB Headers
 #include <cstdio>
@@ -81,33 +86,38 @@ int main(int argc, char * argv[]) {
   parse_arguments(argc, argv, params);
 
   const char * file_name = params.input_filename.c_str();
-  cout << file_name << "\n";
+  cout << "Constructing succinct form of " << file_name << "\n";
 
   // Open File
-  ifstream colorfile(file_name, ios::in|ios::binary);
+  // ifstream colorfile(file_name, ios::in|ios::binary);
 
-  colorfile.seekg(0, colorfile.end);
-  size_t end = colorfile.tellg();
-  colorfile.seekg(0, colorfile.beg);
+  // colorfile.seekg(0, colorfile.end);
+  // size_t end = colorfile.tellg();
+  // colorfile.seekg(0, colorfile.beg);
 
-  size_t num_color = params.num_colors;
-  size_t num_edges = end / sizeof(color_bv);
-  bit_vector b = bit_vector(num_edges*num_color, 0);
-  size_t cnt0 = 0;
-  size_t cnt1 = 0;
-  for (size_t i=0; i < num_edges; i++) {
-      color_bv value;
-      deserialize_color_bv(colorfile, value, num_color);
-      for (size_t j=0; j < num_color; j++) {
-          b[i*num_color + j] = value[j];
-          if (b[i*num_color + j] == 0)
-              cnt0++;
-          else
-              cnt1++;
-      }
-  }
-  cout << "edges: " << num_edges << " colors: " << num_color << " Total: " << num_edges * num_color << endl;
-  cout << cnt0  << ":" << cnt1 << endl;
+  // size_t num_color = params.num_colors;
+  // size_t num_edges = end / sizeof(color_bv);
+
+  
+  int_vector<> b;// = enc_vector(num_edges*num_color, 0);
+//  csa_wt<> csa;
+  load_vector_from_file(b,params.input_filename, 4);
+//  construct(csa, params.input_filename, 4);
+  // size_t cnt0 = 0;
+  // size_t cnt1 = 0;
+  // for (size_t i=0; i < num_edges; i++) {
+  //     color_bv value;
+  //     deserialize_color_bv(colorfile, value, num_color);
+  //     for (size_t j=0; j < num_color; j++) {
+  //         b[i*num_color + j] = value[j];
+  //         if (b[i*num_color + j] == 0)
+  //             cnt0++;
+  //         else
+  //             cnt1++;
+  //     }
+  // }
+  // cout << "edges: " << num_edges << " colors: " << num_color << " Total: " << num_edges * num_color << endl;
+  // cout << cnt0  << ":" << cnt1 << endl;
 
   int sysTime = getMilliCount();
   /*
@@ -120,18 +130,18 @@ int main(int argc, char * argv[]) {
   cout << "BV Access Time: " << getMilliSpan(sysTime) << endl;
   cout << "BV Size (MB): " << size_in_mega_bytes(b) << endl;
   */
-  sysTime = getMilliCount();
-  rrr_vector<63> rrrb(b);
-  cout << "RRR Creation Time: " << getMilliSpan(sysTime) << endl;
-  sysTime = getMilliCount();
-  for (size_t i=0; i < num_edges*num_color; i++) {
-    rrrb[i];
-  }
-  cout << "RRR AccessTime: " << getMilliSpan(sysTime) << endl;
-  cout << "RRR Size (MB): " << size_in_mega_bytes(rrrb) << endl;
+  // sysTime = getMilliCount();
+  // rrr_vector<63> rrrb(b);
+  // cout << "RRR Creation Time: " << getMilliSpan(sysTime) << endl;
+  // sysTime = getMilliCount();
+  // for (size_t i=0; i < num_edges*num_color; i++) {
+  //   rrrb[i];
+  // }
+  // cout << "RRR AccessTime: " << getMilliSpan(sysTime) << endl;
+  // cout << "RRR Size (MB): " << size_in_mega_bytes(rrrb) << endl;
   char * base_name = basename(const_cast<char*>(params.input_filename.c_str()));
   string outfilename = ((params.output_prefix == "")? base_name : params.output_prefix) + extension;
-  store_to_file(rrrb, outfilename);
+  store_to_file(b, outfilename);
 
   /*
   sysTime = getMilliCount();
