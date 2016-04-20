@@ -393,7 +393,7 @@ int main(int argc, char * argv[])
     cfs.open(outfilename + ".colors", ios::out | ios::binary);
 
 
-    color_bv ones;
+    color_bv ones(NUM_COLS);
     // create an 'all ones' color_bv
     for (unsigned int citer=0; citer < num_colors; ++citer)
         ones[citer] = 1;

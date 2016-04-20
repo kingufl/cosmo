@@ -8,6 +8,7 @@
 
 #include <sdsl/bit_vectors.hpp>
 #include <sdsl/wavelet_trees.hpp>
+#include <sdsl/enc_vector.hpp>
 
 #include "io.hpp"
 #include "debruijn_graph.hpp"
@@ -99,7 +100,7 @@ void dump_edges(debruijn_graph<> dbg, uint64_t * colors) {
 
 const char *const starts[] = {"GCCATACTGCGTCATGTCGCCCTGACGCGC","GCAGGTTCGAATCCTGCACGACCCACCAAT","GCTTAACCTCACAACCCGAAGATGTTTCTT","AAAACCCGCCGAAGCGGGTTTTTACGTAAA","AATCCTGCACGACCCACCAGTTTTAACATC","AGAGTTCCCCGCGCCAGCGGGGATAAACCG","GAATACGTGCGCAACAACCGTCTTCCGGAG"};
 typedef std::bitset<NUM_COLS>     real_color_bv;
-void find_bubbles(debruijn_graph<> dbg, rrr_vector<63> &colors, real_color_bv color_mask1, real_color_bv color_mask2)
+void find_bubbles(debruijn_graph<> dbg, enc_vector<> &colors, real_color_bv color_mask1, real_color_bv color_mask2)
 {
     int t = getMilliCount();
     int num_colors = colors.size() / dbg.num_edges();
@@ -225,7 +226,8 @@ int main(int argc, char* argv[]) {
   debruijn_graph<> dbg = debruijn_graph<>::load_from_packed_edges(input, "$ACGT"/*, &minus_positions*/);
   input.close();
 
-  rrr_vector<63> colors;
+  //rrr_vector<63> colors;
+  enc_vector<> colors;
   load_from_file(colors, p.color_filename);
 
   cerr << "k             : " << dbg.k << endl;

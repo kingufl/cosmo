@@ -101,7 +101,7 @@ int main(int argc, char * argv[]) {
   
   int_vector<> b;// = enc_vector(num_edges*num_color, 0);
 //  csa_wt<> csa;
-  load_vector_from_file(b,params.input_filename, 4);
+  load_vector_from_file(b, params.input_filename, sizeof(coverage_t));
 //  construct(csa, params.input_filename, 4);
   // size_t cnt0 = 0;
   // size_t cnt1 = 0;
@@ -141,7 +141,8 @@ int main(int argc, char * argv[]) {
   // cout << "RRR Size (MB): " << size_in_mega_bytes(rrrb) << endl;
   char * base_name = basename(const_cast<char*>(params.input_filename.c_str()));
   string outfilename = ((params.output_prefix == "")? base_name : params.output_prefix) + extension;
-  store_to_file(b, outfilename);
+  enc_vector<> b_enc(b);
+  store_to_file(b_enc, outfilename);
 
   /*
   sysTime = getMilliCount();
