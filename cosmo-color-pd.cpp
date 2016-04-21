@@ -165,7 +165,7 @@ unsigned dna_ord(char c)
 // this is meant to roughly mimic strcmp(), will return 0 if the paths starting at s_pos and node_k_pos match for the first L nodes
 void advance(debruijn_graph<> dbg, const std::string& ref_fasta_content, const unsigned amount, ssize_t& node_k, ssize_t& node_k_pos)
 {
-    unsigned node_label_size = dbg.node_label(0).size();  //FIXME FIXME FIXME: this will be called a lot and will be slowwwww
+    unsigned node_label_size = dbg.k - 1;  //FIXME FIXME FIXME: this will be called a lot and will be slowwwww
     for (unsigned i = 0; i < amount; ++i) {
         
         ssize_t edge = dbg.outgoing_edge(node_k, dna_ord(ref_fasta_content[node_k_pos + node_label_size]));
@@ -180,9 +180,11 @@ void advance(debruijn_graph<> dbg, const std::string& ref_fasta_content, const u
     
 }
 
-
-void get_supernode(debruijn_graph<> dbg, const ssize_t& node_i, const uint64_t sample_mask /*FIXME: limited to 64 colors*/, std::vector<ssize_t>& s, unsigned num_colors,  rrr_vector<63> &colors )
+/*FIXME: sample_mask is limited to 64 colors*/
+void get_supernode(debruijn_graph<> dbg, const ssize_t& node_i, const uint64_t sample_mask , std::vector<ssize_t>& s, unsigned num_colors,  rrr_vector<63> &colors, int& node_i_pos_in_supernode)
 {
+    node_i_pos_in_supernode = 0;
+    
     //FIXME: what happens if ref enters supernode at the side? do we need to backup to the beginning?  supplement seems to imply no
     if (dbg.outdegree(node_i) == 1) {
         
@@ -230,27 +232,38 @@ void get_supernode(debruijn_graph<> dbg, const ssize_t& node_i, const uint64_t s
     }
 }
 
-int get_divergent(debruijn_graph<> dbg, const std::string& ref_fasta_content, const std::vector<ssize_t>& s, ssize_t node_k, ssize_t node_k_pos)
-{
-    for (unsigned i = 0;; ++i, advance(dbg, ref_fasta_content, 1, node_k, node_k_pos)) {
-        if (node_k != s[i]) return i;
-    }
+// int get_divergent(debruijn_graph<> dbg, const std::string& ref_fasta_content, const std::vector<ssize_t>& s, ssize_t node_k, ssize_t node_k_pos)
+// {
+//     for (unsigned i = 0;; ++i, advance(dbg, ref_fasta_content, 1, node_k, node_k_pos)) {
+//         if (node_k != s[i]) return i;
+//     }
     
         
 
-}
+// }
 
 
 
-int path_cmp(debruijn_graph<> dbg, const std::string& ref_fasta_content, const std::vector<ssize_t>& s, ssize_t s_pos, ssize_t node_k, ssize_t node_k_pos, const unsigned L)
+// int path_cmp(debruijn_graph<> dbg, const std::string& ref_fasta_content, const std::vector<ssize_t>& s, ssize_t s_pos, ssize_t node_k, ssize_t node_k_pos, const unsigned L)
+// {
+//     for (unsigned int i = 0; i < L; ++i, advance(dbg, ref_fasta_content, 1, node_k, node_k_pos), ++s_pos) {
+//         if (s[s_pos] != node_k) return 1;
+//     }
+
+//     return 0;
+// }
+
+unsigned int match_length(debruijn_graph<> dbg, const std::string& ref_fasta_content, const std::vector<ssize_t>& s, ssize_t s_pos, ssize_t node_k, ssize_t node_k_pos, unsigned bound = -1)
 {
-    for (unsigned int i = 0; i < L; ++i, advance(dbg, ref_fasta_content, 1, node_k, node_k_pos), ++s_pos) {
-        if (s[s_pos] != node_k) return 1;
+    unsigned int i = 0;
+    
+    for (; s_pos < s.size() && node_k_pos < ref_fasta_content.size(); ++i, advance(dbg, ref_fasta_content, 1, node_k, node_k_pos), ++s_pos) {
+        if (s[s_pos] != node_k || i == bound) return i;
     }
-
-    return 0;
+    return i;
+    
+    
 }
-
 
 void dump_supernode(debruijn_graph<> dbg, const std::vector<ssize_t>& s)
 {
@@ -275,33 +288,45 @@ void dump_supernode(debruijn_graph<> dbg, const std::vector<ssize_t>& s)
 // i is the common node
 // M is the maximum variant size
 // n is the reference sequence
-const unsigned L = 50;
-const unsigned M = 1000;
+const unsigned L = 20;
+const unsigned M = 500;
 
 void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t ref_color, uint64_t sample_mask, std::string& ref_fasta_content)
 {
     // find node for n[0]
     int num_colors = colors.size() / dbg.num_edges();
     ssize_t first_node = 1875943; // get_first_node(dbg, colors, ref_color, ref_fasta_content);
-    unsigned node_label_size = dbg.node_label(0).size();
+    unsigned node_label_size = dbg.k - 1;
+    
     ssize_t node_i = first_node;
     ssize_t node_i_pos = 0;
 
     
     // for each node in ref_fasta, if it starts a sample supernode, scan through ref fasta looking for the other end of the supernode up to M nodes away
     while(node_i_pos + node_label_size < ref_fasta_content.size()) {
-        std::vector<ssize_t> s; // supernode
-        get_supernode(dbg, node_i, sample_mask, s, num_colors, colors);
-        ssize_t b = 0; // position in s where ref diverges or (b)ranches
         
-        if (s.size()) b = get_divergent(dbg, ref_fasta_content, s, node_i, node_i_pos);
-
-        if (s.size() > L && b > L && !path_cmp(dbg, ref_fasta_content, s, b - L - 1, node_i, node_i_pos, L)) {
+        std::vector<ssize_t> s; // supernode
+        int node_i_pos_in_supernode = -1;
+        get_supernode(dbg, node_i, sample_mask, s, num_colors, colors, node_i_pos_in_supernode);
+        std::cout << "got supernode for ref position " << node_i_pos << " of size " << s.size();
+        
+        ssize_t b = 0; // position in s where ref is first divergent or (b)ranches
+        
+        if (s.size()) {
+            b = node_i_pos_in_supernode +  match_length(dbg, ref_fasta_content, s, node_i_pos_in_supernode, node_i, node_i_pos);
+            std::cout << " with divergent point at depth " << b;
+            
+        }
+        std::cout << std::endl;
+        
+        if (s.size() && b - node_i_pos_in_supernode >= L ) {
+            std::cout << "Got supernode of size " << s.size() << " with anchor starting at reference position " << node_i_pos << " and ending at supernode position " << b << "." << std::endl;
+            
             ssize_t node_j = node_i;
             ssize_t node_j_pos = node_i_pos;
-            advance(dbg, ref_fasta_content, L+1, node_j, node_j_pos);
-            for (; node_j_pos <= node_i_pos + M; advance(dbg, ref_fasta_content, 1,node_j, node_j_pos)) {
-                if (!path_cmp(dbg, ref_fasta_content, s, s.size() - L, node_j, node_j_pos, L)) {
+            advance(dbg, ref_fasta_content, b - node_i_pos_in_supernode + 1, node_j, node_j_pos);
+            for (; node_j_pos <= node_i_pos + M; advance(dbg, ref_fasta_content, 1, node_j, node_j_pos)) {
+                if (L == match_length(dbg, ref_fasta_content, s, s.size() - L, node_j, node_j_pos, L)) {
                     dump_supernode(dbg, s);
                     break;
                 }
