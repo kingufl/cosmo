@@ -180,13 +180,57 @@ void advance(debruijn_graph<> dbg, const std::string& ref_fasta_content, const u
     
 }
 
+int colored_outdegree(debruijn_graph<> dbg, ssize_t v, const uint64_t sample_mask, unsigned num_colors, rrr_vector<63> &colors)
+{
+    unsigned out_count = 0;
+    
+    for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) { // iterate through the alphabet
+        ssize_t next_edge = dbg.outgoing_edge(v, x2);
+        if (next_edge != -1) {
+            uint64_t color_mask = 0;
+            for (int c = 0; c < num_colors; c++)
+                color_mask |= colors[next_edge * num_colors + c] << c;
+            if (color_mask & sample_mask) {
+                out_count += 1;
+
+            }
+        }
+    }
+    return out_count;
+    
+    
+}
+
+int colored_indegree(debruijn_graph<> dbg, ssize_t v, const uint64_t sample_mask, unsigned num_colors, rrr_vector<63> &colors)
+{
+    unsigned out_count = 0;
+    
+    for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) { // iterate through the alphabet
+        ssize_t next_edge = dbg.incoming(v, x2);
+        if (next_edge != -1) {
+            uint64_t color_mask = 0;
+            for (int c = 0; c < num_colors; c++)
+                color_mask |= colors[next_edge * num_colors + c] << c;
+            if (color_mask & sample_mask) {
+                out_count += 1;
+
+            }
+        }
+    }
+    return out_count;
+    
+    
+}
+
+//FIXME: add asserts to check the color for the reference genome; it's somewhat annoying user has to specify both the color and the reference genome; we should be able to derive one from the other for the overall flow and having the data replicated could lead to inconsistency errors.
 /*FIXME: sample_mask is limited to 64 colors*/
+// FIXME: how to handle multiple colors?  Treat them all the same? Or do we have to bookkeep individual color results during one traversal.  What to do about divergence in the latter case?
 void get_supernode(debruijn_graph<> dbg, const ssize_t& node_i, const uint64_t sample_mask , std::vector<ssize_t>& s, unsigned num_colors,  rrr_vector<63> &colors, int& node_i_pos_in_supernode)
 {
     node_i_pos_in_supernode = 0;
-    
+
     //FIXME: what happens if ref enters supernode at the side? do we need to backup to the beginning?  supplement seems to imply no
-    if (dbg.outdegree(node_i) == 1) {
+    if (colored_outdegree(dbg, node_i, sample_mask, num_colors, colors) == 1) {
         
         for (unsigned long x = 1; x < dbg.sigma + 1; x++) { // iterate through the alphabet of outgoing edges from node i
             // follow each strand or supernode
@@ -204,7 +248,7 @@ void get_supernode(debruijn_graph<> dbg, const ssize_t& node_i, const uint64_t s
 
                 // walk along edges until we encounter 
                 ssize_t node_pos = dbg._edge_to_node(edge);
-                while (dbg.indegree(node_pos) == 1 && dbg.outdegree(node_pos) == 1) {
+                while (colored_indegree(dbg, node_pos, sample_mask, num_colors, colors) == 1 && colored_outdegree(dbg, node_pos, sample_mask, num_colors, colors) == 1) {
 
                     ssize_t next_edge = 0;
                     for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) { // iterate through the alphabet
@@ -212,16 +256,16 @@ void get_supernode(debruijn_graph<> dbg, const ssize_t& node_i, const uint64_t s
                         if (next_edge != -1) {
                             uint64_t color_mask = 0;
                             for (int c = 0; c < num_colors; c++)
-                                color_mask |= colors[edge * num_colors + c] << c;
+                                color_mask |= colors[next_edge * num_colors + c] << c;
                             if (color_mask & sample_mask) {
                                 s.push_back(node_pos);
-                            } else {
-                                return;
-                            }
+                                break;
+                                
+                            } 
                                                             
 
                             //branch[branch_num] += base[x2];
-                            break;
+
                         }
                     }
                     node_pos = dbg._edge_to_node(next_edge);
@@ -308,19 +352,19 @@ void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t
         std::vector<ssize_t> s; // supernode
         int node_i_pos_in_supernode = -1;
         get_supernode(dbg, node_i, sample_mask, s, num_colors, colors, node_i_pos_in_supernode);
-        std::cout << "got supernode for ref position " << node_i_pos << " of size " << s.size();
+//        std::cout << "got supernode for ref position " << node_i_pos << " of size " << s.size();
         
         ssize_t b = 0; // position in s where ref is first divergent or (b)ranches
         
         if (s.size()) {
             b = node_i_pos_in_supernode +  match_length(dbg, ref_fasta_content, s, node_i_pos_in_supernode, node_i, node_i_pos);
-            std::cout << " with divergent point at depth " << b;
+            //          std::cout << " with divergent point at depth " << b;
             
         }
-        std::cout << std::endl;
+        //      std::cout << std::endl;
         
         if (s.size() && b - node_i_pos_in_supernode >= L ) {
-            std::cout << "Got supernode of size " << s.size() << " with anchor starting at reference position " << node_i_pos << " and ending at supernode position " << b << "." << std::endl;
+//            std::cout << "Got supernode of size " << s.size() << " with anchor starting at reference position " << node_i_pos << " and ending at supernode position " << b << "." << std::endl;
             
             ssize_t node_j = node_i;
             ssize_t node_j_pos = node_i_pos;
@@ -503,6 +547,6 @@ int main(int argc, char* argv[]) {
   std::string ref_fasta_content;
   std::cout << "Loading reference FASTA file " << p.ref_fasta  << "...";
   parse_fasta(p.ref_fasta, ref_fasta_content);
-  std::cout << "got " << ref_fasta_content.size() << " nucleotides." << std::endl;
+  std::cout << " got " << ref_fasta_content.size() << " nucleotides." << std::endl;
   find_divergent_paths(dbg, colors, mask1, mask2, ref_fasta_content);
 }
