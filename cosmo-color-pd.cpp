@@ -309,11 +309,11 @@ unsigned int match_length(debruijn_graph<> dbg, const std::string& ref_fasta_con
     
 }
 
-void dump_supernode(debruijn_graph<> dbg, const std::vector<ssize_t>& s)
+void dump_supernode(debruijn_graph<> dbg, const std::vector<ssize_t>& s, ssize_t lflanks, ssize_t lflanke, ssize_t rflanks)
 {
     assert(s.size());
     
-    std::cout << "divergent supernode: " << dbg.node_label(s[0]);
+    std::cout << "Divergent supernode matches ref at (k-1)-mers [" <<   lflanks << ", " << lflanke << ") and [" << rflanks << ", " << s.size() << "). Label: " <<  dbg.node_label(s[0]);
 
     for (unsigned i = 1; i < s.size(); ++i) {
         std::string lab = dbg.node_label(s[i]);
@@ -335,9 +335,10 @@ void dump_supernode(debruijn_graph<> dbg, const std::vector<ssize_t>& s)
 const unsigned L = 20;
 const unsigned M = 500;
 
+
 void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t ref_color, uint64_t sample_mask, std::string& ref_fasta_content)
 {
-    // find node for n[0]
+
     int num_colors = colors.size() / dbg.num_edges();
     ssize_t first_node = 1875943; // get_first_node(dbg, colors, ref_color, ref_fasta_content);
     unsigned node_label_size = dbg.k - 1;
@@ -347,43 +348,46 @@ void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t
 
     
     // for each node in ref_fasta, if it starts a sample supernode, scan through ref fasta looking for the other end of the supernode up to M nodes away
-    while(node_i_pos + node_label_size < ref_fasta_content.size()) {
-        
+    while(node_i_pos < ref_fasta_content.size() - node_label_size - 2 /* need min of 3 (k-1)-mers to have a bubble */) {
+        std::cout << "node_i_pos = " << node_i_pos << std::endl;
         std::vector<ssize_t> s; // supernode
         int node_i_pos_in_supernode = -1;
         get_supernode(dbg, node_i, sample_mask, s, num_colors, colors, node_i_pos_in_supernode);
-//        std::cout << "got supernode for ref position " << node_i_pos << " of size " << s.size();
+
         
-        ssize_t b = 0; // position in s where ref is first divergent or (b)ranches
+
         
         if (s.size()) {
-            b = node_i_pos_in_supernode +  match_length(dbg, ref_fasta_content, s, node_i_pos_in_supernode, node_i, node_i_pos);
-            //          std::cout << " with divergent point at depth " << b;
+
+            ssize_t overlap_len = match_length(dbg, ref_fasta_content, s, node_i_pos_in_supernode, node_i, node_i_pos);
+            ssize_t b = node_i_pos_in_supernode +  overlap_len;
+
+
+            // if the ref matches the supernode to the end, we can skip ahead
+            if (b == s.size()) {
+                std::cout << "Skipping remaining " << overlap_len << " nodes that match supernode." << std::endl;
+                advance(dbg, ref_fasta_content, overlap_len, node_i, node_i_pos);
+                continue;
+            }
             
-        }
-        //      std::cout << std::endl;
         
-        if (s.size() && b - node_i_pos_in_supernode >= L ) {
-//            std::cout << "Got supernode of size " << s.size() << " with anchor starting at reference position " << node_i_pos << " and ending at supernode position " << b << "." << std::endl;
+            if (overlap_len >= L ) {
+
             
-            ssize_t node_j = node_i;
-            ssize_t node_j_pos = node_i_pos;
-            advance(dbg, ref_fasta_content, b - node_i_pos_in_supernode + 1, node_j, node_j_pos);
-            for (; node_j_pos <= node_i_pos + M; advance(dbg, ref_fasta_content, 1, node_j, node_j_pos)) {
-                if (L == match_length(dbg, ref_fasta_content, s, s.size() - L, node_j, node_j_pos, L)) {
-                    dump_supernode(dbg, s);
-                    break;
+                ssize_t node_j = node_i;
+                ssize_t node_j_pos = node_i_pos;
+                advance(dbg, ref_fasta_content, overlap_len + 1, node_j, node_j_pos);
+                for (; node_j_pos <= node_i_pos + M; advance(dbg, ref_fasta_content, 1, node_j, node_j_pos)) {
+                    if (L == match_length(dbg, ref_fasta_content, s, s.size() - L, node_j, node_j_pos, L)) {
+                        dump_supernode(dbg, s, node_i_pos_in_supernode, b, s.size() - L);
+                        break;
+                    }
                 }
             }
         }
-        
         advance(dbg, ref_fasta_content, 1, node_i, node_i_pos);
         
     }
-    // for i, each ref_node in enumerate(n):           # iterate through dbg following n
-    //    if ref_node in sample_supernodes:
-    //        S = sample_supernodes[ref_node]
-    //
 }
 
 const char *const starts[] = {"GCCATACTGCGTCATGTCGCCCTGACGCGC","GCAGGTTCGAATCCTGCACGACCCACCAAT","GCTTAACCTCACAACCCGAAGATGTTTCTT","AAAACCCGCCGAAGCGGGTTTTTACGTAAA","AATCCTGCACGACCCACCAGTTTTAACATC","AGAGTTCCCCGCGCCAGCGGGGATAAACCG","GAATACGTGCGCAACAACCGTCTTCCGGAG"};
