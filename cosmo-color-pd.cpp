@@ -19,6 +19,7 @@ using namespace sdsl;
 
 #include <sys/timeb.h>
 
+bool trace = false;
 
 int getMilliCount(){
   timeb tb;
@@ -165,7 +166,7 @@ unsigned dna_ord(char c)
 // this is meant to roughly mimic strcmp(), will return 0 if the paths starting at s_pos and node_k_pos match for the first L nodes
 void advance(debruijn_graph<> dbg, const std::string& ref_fasta_content, const unsigned amount, ssize_t& node_k, ssize_t& node_k_pos)
 {
-    unsigned node_label_size = dbg.k - 1;  //FIXME FIXME FIXME: this will be called a lot and will be slowwwww
+    unsigned node_label_size = dbg.k - 1;  
     for (unsigned i = 0; i < amount; ++i) {
         
         ssize_t edge = dbg.outgoing_edge(node_k, dna_ord(ref_fasta_content[node_k_pos + node_label_size]));
@@ -183,13 +184,20 @@ void advance(debruijn_graph<> dbg, const std::string& ref_fasta_content, const u
 int colored_outdegree(debruijn_graph<> dbg, ssize_t v, const uint64_t sample_mask, unsigned num_colors, rrr_vector<63> &colors)
 {
     unsigned out_count = 0;
-    
-    for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) { // iterate through the alphabet
+
+    // for each symbol of the alphabet
+    for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) {
+
+        // if there exists an outgoing edge for that symbol
         ssize_t next_edge = dbg.outgoing_edge(v, x2);
         if (next_edge != -1) {
+
+            // compute the colors of that edge
             uint64_t color_mask = 0;
             for (int c = 0; c < num_colors; c++)
                 color_mask |= colors[next_edge * num_colors + c] << c;
+
+            // and if any colors of that edge match the sample set of colors, increment the out degree counter
             if (color_mask & sample_mask) {
                 out_count += 1;
 
@@ -203,21 +211,28 @@ int colored_outdegree(debruijn_graph<> dbg, ssize_t v, const uint64_t sample_mas
 
 int colored_indegree(debruijn_graph<> dbg, ssize_t v, const uint64_t sample_mask, unsigned num_colors, rrr_vector<63> &colors)
 {
-    unsigned out_count = 0;
+    unsigned in_count = 0;
     
-    for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) { // iterate through the alphabet
+    // for each symbol of the alphabet
+    for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) {
+
+        // if there exists an incoming edge for that symbol        
         ssize_t next_edge = dbg.incoming(v, x2);
         if (next_edge != -1) {
+
+            // compute the colors of that edge            
             uint64_t color_mask = 0;
             for (int c = 0; c < num_colors; c++)
                 color_mask |= colors[next_edge * num_colors + c] << c;
+
+            // and if any colors of that edge match the sample set of colors, increment the out degree counter
             if (color_mask & sample_mask) {
-                out_count += 1;
+                in_count += 1;
 
             }
         }
     }
-    return out_count;
+    return in_count;
     
     
 }
@@ -248,7 +263,7 @@ void get_supernode(debruijn_graph<> dbg, const ssize_t& node_i, const uint64_t s
 
                 // walk along edges until we encounter 
                 ssize_t node_pos = dbg._edge_to_node(edge);
-                while (colored_indegree(dbg, node_pos, sample_mask, num_colors, colors) == 1 && colored_outdegree(dbg, node_pos, sample_mask, num_colors, colors) == 1) {
+                while (/*colored_indegree(dbg, node_pos, sample_mask, num_colors, colors) <= 1 /*FIXME: should be == 1*/ /*&&*/ colored_outdegree(dbg, node_pos, sample_mask, num_colors, colors) == 1) {
 
                     ssize_t next_edge = 0;
                     for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) { // iterate through the alphabet
@@ -270,6 +285,11 @@ void get_supernode(debruijn_graph<> dbg, const ssize_t& node_i, const uint64_t s
                     }
                     node_pos = dbg._edge_to_node(next_edge);
                     //cout << node_pos << ":" << dbg.node_label(node_pos) << "\n";
+                }
+                if (trace) {
+                    std::cout << "    terminal supernode node label = " << dbg.node_label(node_pos) << std::endl;
+                    std::cout << "   terminal supernode node outdegree = " << colored_outdegree(dbg, node_pos, sample_mask, num_colors, colors) << std::endl;
+                    std::cout << "   terminal supernode node indegree = " << colored_indegree(dbg, node_pos, sample_mask, num_colors, colors) << std::endl;
                 }
             }
         }
@@ -301,7 +321,7 @@ unsigned int match_length(debruijn_graph<> dbg, const std::string& ref_fasta_con
 {
     unsigned int i = 0;
     
-    for (; s_pos < s.size() && node_k_pos < ref_fasta_content.size(); ++i, advance(dbg, ref_fasta_content, 1, node_k, node_k_pos), ++s_pos) {
+    for (; s_pos < s.size() && node_k_pos < ref_fasta_content.size(); ++i, advance(dbg, ref_fasta_content, /* amount */ 1, node_k, node_k_pos), ++s_pos) {
         if (s[s_pos] != node_k || i == bound) return i;
     }
     return i;
@@ -313,7 +333,7 @@ void dump_supernode(debruijn_graph<> dbg, const std::vector<ssize_t>& s, ssize_t
 {
     assert(s.size());
     
-    std::cout << "Divergent supernode matches ref at (k-1)-mers [" <<   lflanks << ", " << lflanke << ") and [" << rflanks << ", " << s.size() << "). Label: " <<  dbg.node_label(s[0]);
+    std::cout << "   Divergent supernode matches ref at (k-1)-mers [" <<   lflanks << ", " << lflanke << ") and [" << rflanks << ", " << s.size() << "). Label: " <<  dbg.node_label(s[0]);
 
     for (unsigned i = 1; i < s.size(); ++i) {
         std::string lab = dbg.node_label(s[i]);
@@ -332,40 +352,52 @@ void dump_supernode(debruijn_graph<> dbg, const std::vector<ssize_t>& s, ssize_t
 // i is the common node
 // M is the maximum variant size
 // n is the reference sequence
-const unsigned L = 20;
-const unsigned M = 500;
+const unsigned L = 1; // number of (k-1)-mers to match in each flank
+const unsigned M = 17000;
 
 
 void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t ref_color, uint64_t sample_mask, std::string& ref_fasta_content)
 {
 
     int num_colors = colors.size() / dbg.num_edges();
-    ssize_t first_node = 1875943; // get_first_node(dbg, colors, ref_color, ref_fasta_content);
+//    ssize_t first_node = 1875943; // get_first_node(dbg, colors, ref_color, ref_fasta_content);
+    ssize_t first_node = 2383686; // get_first_node(dbg, colors, ref_color, ref_fasta_content);
     unsigned node_label_size = dbg.k - 1;
     
-    ssize_t node_i = first_node;
-    ssize_t node_i_pos = 0;
+    ssize_t node_i = first_node; // cdbg node labeled with a k-mer existing in the reference sequence
+//    ssize_t node_i_pos = 0;  // starting position in the reference sequence for the above k-mer
+    ssize_t node_i_pos = 253396;  // starting position in the reference sequence for the above k-mer
 
     
-    // for each node in ref_fasta, if it starts a sample supernode, scan through ref fasta looking for the other end of the supernode up to M nodes away
-    while(node_i_pos < ref_fasta_content.size() - node_label_size - 2 /* need min of 3 (k-1)-mers to have a bubble */) {
-        std::cout << "node_i_pos = " << node_i_pos << std::endl;
+    // for each node in ref_fasta, if it starts a sample supernode,
+    // scan through ref fasta looking for the other end of the supernode up to M nodes away
+    // /* - 2 in the following because we need min of 3 (k-1)-mers to have a bubble */
+    while(node_i_pos < ref_fasta_content.size() - node_label_size - 2 ) {
+        std::cout << "node_i_pos = " << node_i_pos  << "." << std::endl;
         std::vector<ssize_t> s; // supernode
         int node_i_pos_in_supernode = -1;
+        trace = (node_i_pos == 253396); // turn on tracing for this node
         get_supernode(dbg, node_i, sample_mask, s, num_colors, colors, node_i_pos_in_supernode);
 
         
-
-        
         if (s.size()) {
+            std::cout << "    Got supernode of size " << s.size() << std::endl;
 
-            ssize_t overlap_len = match_length(dbg, ref_fasta_content, s, node_i_pos_in_supernode, node_i, node_i_pos);
+            ssize_t overlap_len = match_length(dbg, ref_fasta_content, s, node_i_pos_in_supernode,
+                                               node_i, node_i_pos);
             ssize_t b = node_i_pos_in_supernode +  overlap_len;
 
-
+            if (node_i_pos == 253396) {
+                std::cout << "   node_i label = " << dbg.node_label(node_i) << std::endl;
+                std::cout << "   node_i = " << node_i << std::endl;
+                dump_supernode(dbg, s, node_i_pos_in_supernode, b, s.size() - L);
+            }
+            std::cout << "    node_i_pos_in_supernode = " << node_i_pos_in_supernode
+                      << " overlap_len = " <<  overlap_len << std::endl;
             // if the ref matches the supernode to the end, we can skip ahead
             if (b == s.size()) {
-                std::cout << "Skipping remaining " << overlap_len << " nodes that match supernode." << std::endl;
+                std::cout << "    Skipping remaining " << overlap_len
+                          << " nodes that match supernode." << std::endl;
                 advance(dbg, ref_fasta_content, overlap_len, node_i, node_i_pos);
                 continue;
             }
@@ -373,12 +405,17 @@ void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t
         
             if (overlap_len >= L ) {
 
-            
+                std::cout << "    searching for right flank match..." << std::endl;
                 ssize_t node_j = node_i;
                 ssize_t node_j_pos = node_i_pos;
                 advance(dbg, ref_fasta_content, overlap_len + 1, node_j, node_j_pos);
-                for (; node_j_pos <= node_i_pos + M; advance(dbg, ref_fasta_content, 1, node_j, node_j_pos)) {
-                    if (L == match_length(dbg, ref_fasta_content, s, s.size() - L, node_j, node_j_pos, L)) {
+                for   (; node_j_pos <= node_i_pos + M;
+                       advance(dbg, ref_fasta_content, /* amount */ 1, node_j, node_j_pos)) {
+                    int right_overlap = match_length(dbg, ref_fasta_content, s, s.size() - L, node_j,
+                                                     node_j_pos, L);
+                    if (trace) std::cout << "    overlap search depth: " << node_j_pos - node_i_pos << " found overlap: " << right_overlap << " node_j label: " << dbg.node_label(node_j)
+                                         << " s[s.size() - L] label: " << dbg.node_label(s[s.size() - L]) << std::endl;
+                    if (L == right_overlap) {
                         dump_supernode(dbg, s, node_i_pos_in_supernode, b, s.size() - L);
                         break;
                     }
