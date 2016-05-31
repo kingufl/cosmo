@@ -333,9 +333,9 @@ void dump_supernode(debruijn_graph<> dbg, const std::vector<ssize_t>& s, ssize_t
 {
     assert(s.size());
     
-    std::cout << "   Divergent supernode matches ref at (k-1)-mers [" <<   lflanks << ", " << lflanke << ") and [" << rflanks << ", " << s.size() << "). Label: " <<  dbg.node_label(s[0]);
+    //std::cout << "   Divergent supernode matches ref at (k-1)-mers [" <<   lflanks << ", " << lflanke << ") and [" << rflanks << ", " << s.size() << "). Label: " <<  dbg.node_label(s[0]);
 
-    for (unsigned i = 1; i < s.size(); ++i) {
+    for (unsigned i = lflanke; i < rflanks; ++i) {
         std::string lab = dbg.node_label(s[i]);
         
         std::cout << lab[lab.size()-1];
@@ -353,50 +353,56 @@ void dump_supernode(debruijn_graph<> dbg, const std::vector<ssize_t>& s, ssize_t
 // M is the maximum variant size
 // n is the reference sequence
 const unsigned L = 1; // number of (k-1)-mers to match in each flank
-const unsigned M = 17000;
+//const unsigned M = 17000;
+const unsigned M = 200000; // "a maximum size M of variant to be searched for" -CORTEX supplement ASSUMED_EQUAL_TO "'--max_var_len INT'  Maximum variant size searched for."  -CORTEX manual
+
+//node_i_pos = 253395. node_i = 411788.
+//node_i_pos = 253396. node_i = 2383686.
 
 
 void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t ref_color, uint64_t sample_mask, std::string& ref_fasta_content)
 {
-
+    int variant_num = 0;
     int num_colors = colors.size() / dbg.num_edges();
-//    ssize_t first_node = 1875943; // get_first_node(dbg, colors, ref_color, ref_fasta_content);
-    ssize_t first_node = 2383686; // get_first_node(dbg, colors, ref_color, ref_fasta_content);
+    ssize_t first_node = 1875943; // get_first_node(dbg, colors, ref_color, ref_fasta_content);
+//    ssize_t first_node = 2383686; // get_first_node(dbg, colors, ref_color, ref_fasta_content);
+//    ssize_t first_node = 411788; // get_first_node(dbg, colors, ref_color, ref_fasta_content);    
     unsigned node_label_size = dbg.k - 1;
     
     ssize_t node_i = first_node; // cdbg node labeled with a k-mer existing in the reference sequence
-//    ssize_t node_i_pos = 0;  // starting position in the reference sequence for the above k-mer
-    ssize_t node_i_pos = 253396;  // starting position in the reference sequence for the above k-mer
+    ssize_t node_i_pos = 0;  // starting position in the reference sequence for the above k-mer
+//    ssize_t node_i_pos = 253396;  // starting position in the reference sequence for the above k-mer
+//    ssize_t node_i_pos = 253395;  // starting position in the reference sequence for the above k-mer    
 
     
     // for each node in ref_fasta, if it starts a sample supernode,
     // scan through ref fasta looking for the other end of the supernode up to M nodes away
     // /* - 2 in the following because we need min of 3 (k-1)-mers to have a bubble */
     while(node_i_pos < ref_fasta_content.size() - node_label_size - 2 ) {
-        std::cout << "node_i_pos = " << node_i_pos  << "." << std::endl;
+        std::cerr << "node_i_pos = " << node_i_pos  << ". node_i = " << node_i <<"." << std::endl;
         std::vector<ssize_t> s; // supernode
         int node_i_pos_in_supernode = -1;
-        trace = (node_i_pos == 253396); // turn on tracing for this node
+        trace = false; //(node_i_pos == 253396); // turn on tracing for this node
         get_supernode(dbg, node_i, sample_mask, s, num_colors, colors, node_i_pos_in_supernode);
 
         
         if (s.size()) {
-            std::cout << "    Got supernode of size " << s.size() << std::endl;
+
 
             ssize_t overlap_len = match_length(dbg, ref_fasta_content, s, node_i_pos_in_supernode,
                                                node_i, node_i_pos);
             ssize_t b = node_i_pos_in_supernode +  overlap_len;
-
-            if (node_i_pos == 253396) {
-                std::cout << "   node_i label = " << dbg.node_label(node_i) << std::endl;
-                std::cout << "   node_i = " << node_i << std::endl;
+            std::cerr << "    Got supernode of size " << s.size() << " which matches the ref genome for " << overlap_len << " nodes" std::endl;
+            if (trace) {
+                std::cerr << "   node_i label = " << dbg.node_label(node_i) << std::endl;
+                std::cerr << "   node_i = " << node_i << std::endl;
                 dump_supernode(dbg, s, node_i_pos_in_supernode, b, s.size() - L);
             }
-            std::cout << "    node_i_pos_in_supernode = " << node_i_pos_in_supernode
+            std::cerr << "    node_i_pos_in_supernode = " << node_i_pos_in_supernode
                       << " overlap_len = " <<  overlap_len << std::endl;
             // if the ref matches the supernode to the end, we can skip ahead
             if (b == s.size()) {
-                std::cout << "    Skipping remaining " << overlap_len
+                std::cerr << "    Skipping remaining " << overlap_len
                           << " nodes that match supernode." << std::endl;
                 advance(dbg, ref_fasta_content, overlap_len, node_i, node_i_pos);
                 continue;
@@ -405,7 +411,7 @@ void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t
         
             if (overlap_len >= L ) {
 
-                std::cout << "    searching for right flank match..." << std::endl;
+                std::cerr << "    searching for right flank match..." << std::endl;
                 ssize_t node_j = node_i;
                 ssize_t node_j_pos = node_i_pos;
                 advance(dbg, ref_fasta_content, overlap_len + 1, node_j, node_j_pos);
@@ -413,14 +419,37 @@ void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t
                        advance(dbg, ref_fasta_content, /* amount */ 1, node_j, node_j_pos)) {
                     int right_overlap = match_length(dbg, ref_fasta_content, s, s.size() - L, node_j,
                                                      node_j_pos, L);
-                    if (trace) std::cout << "    overlap search depth: " << node_j_pos - node_i_pos << " found overlap: " << right_overlap << " node_j label: " << dbg.node_label(node_j)
+                    if (trace) std::cerr << "    overlap search depth: " << node_j_pos - node_i_pos << " found overlap: " << right_overlap << " node_j label: " << dbg.node_label(node_j)
                                          << " s[s.size() - L] label: " << dbg.node_label(s[s.size() - L]) << std::endl;
                     if (L == right_overlap) {
+                        variant_num += 1;
+                        std::cerr << "Found bubble " << variant_num << " with " << right_overlap " node rightmost flank overlap starting at reference position " << node_j_pos << std::endl;
+
+                        // 5' flank
+                        std::cout << ">var_" << variant_num << "_5p_flank length:" << overlap_len + dbg.k - 1 << " INFO:KMER=" << dbg.k << std::endl;
+                        std::cout << ref_fasta_content.substr(node_i_pos, overlap_len + dbg.k - 1) << std::endl;
+
+                        // branch_1 : reference branch
+                        unsigned long long branch_1_start = node_i_pos + overlap_len + dbg.k - 1;
+                        std::cout << ">var_" << variant_num << "_branch_1 length:" << node_j_pos - branch_1_start << " kmer:" << dbg.k << std::endl;
+                        std::cout << ref_fasta_content.substr(branch_1_start, node_j_pos - branch_1_start) << std::endl;
+
+                        // branch_2
+                        // in the first bubble in the ecoli6 experiment, the supernode branch was 2nd in the output file, so we'll do it that way
+                        std::cout << ">var_" << variant_num << "_branch_2 length:" << s.size() - L - b << " kmer:" << dbg.k << std::endl;
                         dump_supernode(dbg, s, node_i_pos_in_supernode, b, s.size() - L);
+
+                        // 3' flank
+                        std::cout << ">var_" << variant_num << "_3p_flank length:" << right_overlap + dbg.k - 1 << " kmer:" << dbg.k << std::endl;
+                        std::cout << ref_fasta_content.substr(node_j_pos, right_overlap + dbg.k - 1) << std::endl;
+
+
                         break;
                     }
                 }
             }
+            advance(dbg, ref_fasta_content, overlap_len, node_i, node_i_pos);
+            continue;
         }
         advance(dbg, ref_fasta_content, 1, node_i, node_i_pos);
         
@@ -586,8 +615,8 @@ int main(int argc, char* argv[]) {
   uint64_t mask1 = (p.ref_color.length() > 0) ? atoi(p.ref_color.c_str()) : -1;
   uint64_t mask2 = (p.sample_mask.length() > 0) ? atoi(p.sample_mask.c_str()) : -1;
   std::string ref_fasta_content;
-  std::cout << "Loading reference FASTA file " << p.ref_fasta  << "...";
+  std::cerr << "Loading reference FASTA file " << p.ref_fasta  << "...";
   parse_fasta(p.ref_fasta, ref_fasta_content);
-  std::cout << " got " << ref_fasta_content.size() << " nucleotides." << std::endl;
+  std::cerr << " got " << ref_fasta_content.size() << " nucleotides." << std::endl;
   find_divergent_paths(dbg, colors, mask1, mask2, ref_fasta_content);
 }
