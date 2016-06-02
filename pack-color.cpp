@@ -78,7 +78,7 @@ int main(int argc, char * argv[]) {
   parse_arguments(argc, argv, params);
 
   const char * file_name = params.input_filename.c_str();
-  cout << file_name << "\n";
+  cout << "file name: " << file_name << "\n";
 
   // Open File
   ifstream colorfile(file_name, ios::in|ios::binary);
@@ -86,9 +86,11 @@ int main(int argc, char * argv[]) {
   colorfile.seekg(0, colorfile.end);
   size_t end = colorfile.tellg();
   colorfile.seekg(0, colorfile.beg);
-
+  cout << "file size: " << end << std::endl;
+  cout << "sizeof(color_bv): " << sizeof(color_bv) << std::endl;
   size_t num_color = params.num_colors;
   size_t num_edges = end / sizeof(color_bv);
+
   bit_vector b = bit_vector(num_edges*num_color, 0);
   size_t cnt0 = 0;
   size_t cnt1 = 0;

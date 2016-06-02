@@ -123,7 +123,7 @@ ssize_t get_first_node(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t re
             node_label = dbg.node_label(zeroth_rank_edge);
             if (node_label == query) {
                 //if ((pos = ref_fasta_content.find(edge_label)) == 0 /*!= std::string::npos*/){
-                std::cout << "Found fasta start at edge num " << node_num << std::endl;
+                std::cerr << "Found fasta start at edge num " << node_num << std::endl;
                 return node_num;
                 break;
             }
@@ -180,6 +180,7 @@ void advance(debruijn_graph<> dbg, const std::string& ref_fasta_content, const u
     
     
 }
+
 
 int colored_outdegree(debruijn_graph<> dbg, ssize_t v, const uint64_t sample_mask, unsigned num_colors, rrr_vector<63> &colors)
 {
@@ -263,7 +264,7 @@ void get_supernode(debruijn_graph<> dbg, const ssize_t& node_i, const uint64_t s
 
                 // walk along edges until we encounter 
                 ssize_t node_pos = dbg._edge_to_node(edge);
-                while (/*colored_indegree(dbg, node_pos, sample_mask, num_colors, colors) <= 1 /*FIXME: should be == 1*/ /*&&*/ colored_outdegree(dbg, node_pos, sample_mask, num_colors, colors) == 1) {
+                while (colored_indegree(dbg, node_pos, sample_mask, num_colors, colors) <= 1 /*FIXME: should be == 1*/ && colored_outdegree(dbg, node_pos, sample_mask, num_colors, colors) == 1) {
 
                     ssize_t next_edge = 0;
                     for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) { // iterate through the alphabet
@@ -359,12 +360,17 @@ const unsigned M = 200000; // "a maximum size M of variant to be searched for" -
 //node_i_pos = 253395. node_i = 411788.
 //node_i_pos = 253396. node_i = 2383686.
 
+// for KMC2 k=32, Found fasta start at edge num 7471236
+//  and node_i_pos = 0. node_i = 7471236.
 
 void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t ref_color, uint64_t sample_mask, std::string& ref_fasta_content)
 {
     int variant_num = 0;
     int num_colors = colors.size() / dbg.num_edges();
-    ssize_t first_node = 1875943; // get_first_node(dbg, colors, ref_color, ref_fasta_content);
+    ssize_t first_node =  get_first_node(dbg, colors, ref_color, ref_fasta_content);
+
+    // all these are for KMC's K=31
+//    ssize_t first_node = 1875943; // get_first_node(dbg, colors, ref_color, ref_fasta_content);
 //    ssize_t first_node = 2383686; // get_first_node(dbg, colors, ref_color, ref_fasta_content);
 //    ssize_t first_node = 411788; // get_first_node(dbg, colors, ref_color, ref_fasta_content);    
     unsigned node_label_size = dbg.k - 1;
@@ -392,7 +398,7 @@ void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t
             ssize_t overlap_len = match_length(dbg, ref_fasta_content, s, node_i_pos_in_supernode,
                                                node_i, node_i_pos);
             ssize_t b = node_i_pos_in_supernode +  overlap_len;
-            std::cerr << "    Got supernode of size " << s.size() << " which matches the ref genome for " << overlap_len << " nodes" std::endl;
+            std::cerr << "    Got supernode of size " << s.size() << " which matches the ref genome for " << overlap_len << " nodes" << std::endl;
             if (trace) {
                 std::cerr << "   node_i label = " << dbg.node_label(node_i) << std::endl;
                 std::cerr << "   node_i = " << node_i << std::endl;
@@ -423,7 +429,7 @@ void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t
                                          << " s[s.size() - L] label: " << dbg.node_label(s[s.size() - L]) << std::endl;
                     if (L == right_overlap) {
                         variant_num += 1;
-                        std::cerr << "Found bubble " << variant_num << " with " << right_overlap " node rightmost flank overlap starting at reference position " << node_j_pos << std::endl;
+                        std::cerr << "Found bubble " << variant_num << " with " << right_overlap << " node rightmost flank overlap starting at reference position " << node_j_pos << std::endl;
 
                         // 5' flank
                         std::cout << ">var_" << variant_num << "_5p_flank length:" << overlap_len + dbg.k - 1 << " INFO:KMER=" << dbg.k << std::endl;
@@ -431,8 +437,9 @@ void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t
 
                         // branch_1 : reference branch
                         unsigned long long branch_1_start = node_i_pos + overlap_len + dbg.k - 1;
-                        std::cout << ">var_" << variant_num << "_branch_1 length:" << node_j_pos - branch_1_start << " kmer:" << dbg.k << std::endl;
-                        std::cout << ref_fasta_content.substr(branch_1_start, node_j_pos - branch_1_start) << std::endl;
+                        unsigned long long branch_1_length = node_j_pos - branch_1_start;
+                        std::cout << ">var_" << variant_num << "_branch_1 length:" << branch_1_length << " kmer:" << dbg.k << std::endl;
+                        std::cout << ref_fasta_content.substr(branch_1_start, branch_1_length) << std::endl;
 
                         // branch_2
                         // in the first bubble in the ecoli6 experiment, the supernode branch was 2nd in the output file, so we'll do it that way

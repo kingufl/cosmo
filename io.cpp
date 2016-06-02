@@ -378,8 +378,8 @@ size_t kmc_read_kmers(const int handle, const uint32_t kmer_num_bits, const uint
             for (unsigned int block=0; block < kmer.size(); ++block) {
                 kmers_output.push_back(kmer[block]); // FIXME: check if kmer_output is big endian or little endian
 
-                if (block == 1) {
-                    assert(k == 63); //FIXME: the following line is to fix a bug in the kmc2 API where it shifts word[0] << 64 when k=63 which results in "word[1] =  word[0] + word[1]" the next line compensates; not sure how pervasive this is in the k>32 space.
+                if (block == 1 && k == 63) {
+//                    assert(k == 63); //FIXME: the following line is to fix a bug in the kmc2 API where it shifts word[0] << 64 when k=63 which results in "word[1] =  word[0] + word[1]" the next line compensates; not sure how pervasive this is in the k>32 space.
                     kmers_output[kmers_output.size() - 1] -=kmer[0];
                 }
 

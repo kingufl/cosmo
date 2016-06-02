@@ -49,7 +49,7 @@ ifeq ($(varord),1)
 CPP_FLAGS+=-DVAR_ORDER
 endif
 
-BUILD_REQS=debruijn_graph.hpp io.hpp io.o debug.h
+BUILD_REQS=debruijn_graph.hpp io.hpp io.o debug.h kmer.hpp
 COLOR_REQS=colored_debruijn_graph.hpp io.hpp io.o debug.h
 ASSEM_REQS=debruijn_graph.hpp algorithm.hpp utility.hpp kmer.hpp uint128_t.hpp
 PACK_REQS=lut.hpp debug.h io.hpp io.o sort.hpp kmer.hpp dummies.hpp
