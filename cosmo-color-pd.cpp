@@ -330,19 +330,22 @@ unsigned int match_length(debruijn_graph<> dbg, const std::string& ref_fasta_con
     
 }
 
-void dump_supernode(debruijn_graph<> dbg, const std::vector<ssize_t>& s, ssize_t lflanks, ssize_t lflanke, ssize_t rflanks)
+void dump_supernode(debruijn_graph<> dbg, const std::vector<ssize_t>& s, ssize_t start, ssize_t end, std::string &out)
 {
     assert(s.size());
     
     //std::cout << "   Divergent supernode matches ref at (k-1)-mers [" <<   lflanks << ", " << lflanke << ") and [" << rflanks << ", " << s.size() << "). Label: " <<  dbg.node_label(s[0]);
 
-    for (unsigned i = lflanke; i < rflanks; ++i) {
+    for (unsigned i = start; i < end; ++i) {
         std::string lab = dbg.node_label(s[i]);
-        
-        std::cout << lab[lab.size()-1];
+        if (i == start) {
+            out += lab;
+        } else {
+            out += lab[lab.size()-1];
+        }
 
     }
-    std::cout << std::endl;
+
     
 
 }
@@ -390,6 +393,10 @@ void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t
         int node_i_pos_in_supernode = -1;
         trace = false; //(node_i_pos == 253396); // turn on tracing for this node
         get_supernode(dbg, node_i, sample_mask, s, num_colors, colors, node_i_pos_in_supernode);
+        std::string full_supernode;
+        dump_supernode(dbg, s, 0, s.size(), full_supernode);
+
+
 
         
         if (s.size()) {
@@ -402,7 +409,7 @@ void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t
             if (trace) {
                 std::cerr << "   node_i label = " << dbg.node_label(node_i) << std::endl;
                 std::cerr << "   node_i = " << node_i << std::endl;
-                dump_supernode(dbg, s, node_i_pos_in_supernode, b, s.size() - L);
+                std::cerr << "full supernode:" << full_supernode << std::endl;
             }
             std::cerr << "    node_i_pos_in_supernode = " << node_i_pos_in_supernode
                       << " overlap_len = " <<  overlap_len << std::endl;
@@ -428,6 +435,11 @@ void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t
                     if (trace) std::cerr << "    overlap search depth: " << node_j_pos - node_i_pos << " found overlap: " << right_overlap << " node_j label: " << dbg.node_label(node_j)
                                          << " s[s.size() - L] label: " << dbg.node_label(s[s.size() - L]) << std::endl;
                     if (L == right_overlap) {
+
+                        ssize_t node_j_pos_retreat = node_j_pos;
+                        for (int right_flank_size = L; full_supernode[s.size() - right_flank_size] == ref_fasta_content[node_j_pos_retreat]; ++right_flank_size, --node_j_pos_retreat)
+                            ;
+                        
                         variant_num += 1;
                         std::cerr << "Found bubble " << variant_num << " with " << right_overlap << " node rightmost flank overlap starting at reference position " << node_j_pos << std::endl;
 
@@ -444,7 +456,9 @@ void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t
                         // branch_2
                         // in the first bubble in the ecoli6 experiment, the supernode branch was 2nd in the output file, so we'll do it that way
                         std::cout << ">var_" << variant_num << "_branch_2 length:" << s.size() - L - b << " kmer:" << dbg.k << std::endl;
-                        dump_supernode(dbg, s, node_i_pos_in_supernode, b, s.size() - L);
+                        std::string supernode;
+                        dump_supernode(dbg, s, b, s.size() - L, supernode);
+                        std::cout << supernode << std::endl;
 
                         // 3' flank
                         std::cout << ">var_" << variant_num << "_3p_flank length:" << right_overlap + dbg.k - 1 << " kmer:" << dbg.k << std::endl;
