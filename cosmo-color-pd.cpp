@@ -194,12 +194,12 @@ int colored_outdegree(debruijn_graph<> dbg, ssize_t v, const uint64_t sample_mas
         if (next_edge != -1) {
 
             // compute the colors of that edge
-            uint64_t color_mask = 0;
+            uint64_t node_colors = 0;
             for (int c = 0; c < num_colors; c++)
-                color_mask |= colors[next_edge * num_colors + c] << c;
+                node_colors |= colors[next_edge * num_colors + c] << c;
 
             // and if any colors of that edge match the sample set of colors, increment the out degree counter
-            if (color_mask & sample_mask) {
+            if (node_colors & sample_mask) {
                 out_count += 1;
 
             }
@@ -222,12 +222,12 @@ int colored_indegree(debruijn_graph<> dbg, ssize_t v, const uint64_t sample_mask
         if (next_edge != -1) {
 
             // compute the colors of that edge            
-            uint64_t color_mask = 0;
+            uint64_t node_colors = 0;
             for (int c = 0; c < num_colors; c++)
-                color_mask |= colors[next_edge * num_colors + c] << c;
+                node_colors |= colors[next_edge * num_colors + c] << c;
 
             // and if any colors of that edge match the sample set of colors, increment the out degree counter
-            if (color_mask & sample_mask) {
+            if (node_colors & sample_mask) {
                 in_count += 1;
 
             }
@@ -255,25 +255,25 @@ void get_supernode(debruijn_graph<> dbg, const ssize_t& node_i, const uint64_t s
                 continue;
             //branch[branch_num] += base[x];
             // build color mask
-            uint64_t color_mask = 0;
+            uint64_t node_colors = 0;
             for (int c = 0; c < num_colors; c++)
-                color_mask |= colors[edge * num_colors + c] << c;
-            if (color_mask & sample_mask) {
+                node_colors |= colors[edge * num_colors + c] << c;
+            if (node_colors & sample_mask) {
                 s.push_back(node_i);
                 
 
                 // walk along edges until we encounter 
                 ssize_t node_pos = dbg._edge_to_node(edge);
-                while (colored_indegree(dbg, node_pos, sample_mask, num_colors, colors) <= 1 /*FIXME: should be == 1*/ && colored_outdegree(dbg, node_pos, sample_mask, num_colors, colors) == 1) {
+                while (colored_indegree(dbg, node_pos, sample_mask, num_colors, colors) == 1 /*FIXME: should be == 1*/ && colored_outdegree(dbg, node_pos, sample_mask, num_colors, colors) == 1) {
 
                     ssize_t next_edge = 0;
                     for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) { // iterate through the alphabet
                         next_edge = dbg.outgoing_edge(node_pos, x2);
                         if (next_edge != -1) {
-                            uint64_t color_mask = 0;
+                            uint64_t node_colors = 0;
                             for (int c = 0; c < num_colors; c++)
-                                color_mask |= colors[next_edge * num_colors + c] << c;
-                            if (color_mask & sample_mask) {
+                                node_colors |= colors[next_edge * num_colors + c] << c;
+                            if (node_colors & sample_mask) {
                                 s.push_back(node_pos);
                                 break;
                                 
@@ -476,6 +476,58 @@ void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t
         
     }
 }
+char* dna_bases = "$ACGT";
+
+void dump_node(debruijn_graph<> dbg, rrr_vector<63> &colors, ssize_t v)
+{
+    std::cout << dbg.node_label(v) ;
+    int num_colors = colors.size() / dbg.num_edges();
+
+    
+    int c = 1;
+    
+    // out edges
+    std::cout << " orientation 0 { ";
+    for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) {
+
+            // if there exists an outgoing edge for that symbol
+            ssize_t next_edge = dbg.outgoing_edge(v, x2);
+            if (next_edge != -1) {
+                    if (colors[next_edge * num_colors + c]) {
+                    std::cout << dna_bases[x2];
+
+                }
+            }
+        }
+
+    // in edges
+    std::cout << "} orientation 1 { ";
+
+    for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) {
+
+            // if there exists an outgoing edge for that symbol
+            ssize_t next_edge = dbg.incoming(v, x2);
+            if (next_edge != -1) {
+                if( colors[next_edge * num_colors + c]) {
+                    std::cout << dna_bases[x2];
+                }
+            }
+        }
+
+
+
+    std::cout << "}" << std::endl;
+
+}
+
+void dump_graph(debruijn_graph<> dbg, rrr_vector<63> &colors)
+{
+
+    
+    for (size_t node_i = 0; node_i < dbg.num_nodes(); node_i++) {
+        dump_node(dbg, colors, node_i);
+    }
+}
 
 const char *const starts[] = {"GCCATACTGCGTCATGTCGCCCTGACGCGC","GCAGGTTCGAATCCTGCACGACCCACCAAT","GCTTAACCTCACAACCCGAAGATGTTTCTT","AAAACCCGCCGAAGCGGGTTTTTACGTAAA","AATCCTGCACGACCCACCAGTTTTAACATC","AGAGTTCCCCGCGCCAGCGGGGATAAACCG","GAATACGTGCGCAACAACCGTCTTCCGGAG"};
     
@@ -631,6 +683,10 @@ int main(int argc, char* argv[]) {
   cerr << "Bits per edge : " << bits_per_element(dbg) << " Bits" << endl;
   cerr << "Color size    : " << size_in_mega_bytes(colors) << " MB" << endl;
 
+  std::cout << "BEGIN dump_graph" << std::endl;
+  dump_graph(dbg, colors);
+  std::cout << "END dump_graph" << std::endl;
+  
   //dump_nodes(dbg, colors);
   //dump_edges(dbg, colors);
   uint64_t mask1 = (p.ref_color.length() > 0) ? atoi(p.ref_color.c_str()) : -1;
