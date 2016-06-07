@@ -488,32 +488,45 @@ void dump_node(debruijn_graph<> dbg, rrr_vector<63> &colors, ssize_t v)
     
     // out edges
     std::cout << " orientation 0 { ";
+    // for each outgoing edge
+    std::set<char> outedges;
     for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) {
 
             // if there exists an outgoing edge for that symbol
             ssize_t next_edge = dbg.outgoing_edge(v, x2);
-            if (next_edge != -1) {
-                    if (colors[next_edge * num_colors + c]) {
-                    std::cout << dna_bases[x2];
-
-                }
+            // for each color
+//            for (int c = 0; c < 6; ++c) {
+                if (next_edge != -1) {
+                    //                  if (colors[next_edge * num_colors + c]) {
+                        outedges.insert(dna_bases[x2]);
+//                    }
+//                }
             }
         }
 
+    for(std::set<char>::iterator it = outedges.begin(); it != outedges.end(); ++it)
+        std::cout << *it;
+
+    
+
     // in edges
     std::cout << "} orientation 1 { ";
-
+    std::set<char> inedges;
     for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) {
 
             // if there exists an outgoing edge for that symbol
             ssize_t next_edge = dbg.incoming(v, x2);
             if (next_edge != -1) {
-                if( colors[next_edge * num_colors + c]) {
-                    std::cout << dna_bases[x2];
-                }
+                //              for (int c = 0; c < 6; ++c) {
+//                    if( colors[next_edge * num_colors + c]) {
+                        inedges.insert(dna_bases[x2]);
+//                    }
+//                }
             }
-        }
+    }
 
+    for(std::set<char>::iterator it = inedges.begin(); it != inedges.end(); ++it)
+        std::cout << *it;
 
 
     std::cout << "}" << std::endl;
