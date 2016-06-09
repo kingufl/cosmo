@@ -417,7 +417,15 @@ int main(int argc, char * argv[])
 #endif
                     if (tag == standard) {
                         // cerr << kmer_to_string(x, k, this_k) << "c" << colors[index] << "\n";
+                        uint64_t colorint = 0;
+                        for (int c = 0; c < 6; ++c)
+                            colorint |= colors[index][c] << c;
                         serialize_color_bv(cfs, colors[index++]);
+
+                        std::cout <<"kout:"<<colorint<<":";
+                        print_kmers(std::cout, &x, 1, this_k);
+
+
                         //cfs.write((char *)&colors[index++], sizeof(uint64_t));
                     }
                     else {
@@ -443,7 +451,8 @@ int main(int argc, char * argv[])
                     out.write(tag, x, this_k, lcs_len, first_end_node);
 #endif
                     if (tag == standard) {
-                        // cerr << kmer_to_string(x, k, this_k) << "c" << colors[index] << "\n";
+                        //cerr << "kout:" << okmer_to_string(x, k, this_k) << ":" << colors[index] << "\n";
+
                         serialize_color_bv(cfs, colors[index++]);
                         //cfs.write((char *)&colors[index++], sizeof(uint64_t));
                     }

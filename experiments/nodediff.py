@@ -3,11 +3,19 @@
 import Bio.Seq
 import pickle
 import sys
+import re
 complement = { 'A' : 'T',
                  'T' :'A',
                  'G' :'C',
                  'C' :'G'}
 
+colorcount_re = re.compile(r"([AGCT])(\d+)")
+def colored_complement(x):
+    compd = ""
+    for base, bitset in colorcount_re.findall(x):
+        compd += complement[base] + bitset
+    return compd
+    
 print("loading cortex pickle from",sys.argv[1])
 cortex_nodes = pickle.load( open(sys.argv[1], "rb" ) ) #  "cortex_pd_withdump.pickle"
 print("loaded", len(cortex_nodes),"nodes")
@@ -29,8 +37,8 @@ for entry_num, (cosmo_node, (cosmo_out_edges, cosmo_in_edges)) in enumerate(cosm
     elif cosmo_node_revcomp in cortex_nodes:
         cortex_out_edges, cortex_in_edges = cortex_nodes[cosmo_node_revcomp]
         # cortex's forward orientation arg for edge queries where we want the revcomp of the node label needs edges compl'd
-        cortex_out_edges = {complement[e] for e in cortex_out_edges}
-        cortex_in_edges = {complement[e] for e in cortex_in_edges}        
+        cortex_out_edges = colored_complement(cortex_out_edges)
+        cortex_in_edges = colored_complement(cortex_in_edges)
         # we need to swap the in/out order b/c we're considering the cortex node in the non-canonical direction
         if (cosmo_out_edges, cosmo_in_edges) != (cortex_in_edges, cortex_out_edges):
             print("revcomp Mismatch: cosmo: ",  cosmo_node, (cosmo_out_edges, cosmo_in_edges),  "dict entry", entry_num)

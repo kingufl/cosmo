@@ -373,7 +373,7 @@ size_t kmc_read_kmers(const int handle, const uint32_t kmer_num_bits, const uint
             //std::cout << const_cast<CKmerAPI*>(&(current.second))->to_string() << " : " << color << std::endl;
             
             kmer_colors.push_back(color);
-            color.reset();
+
 
             for (unsigned int block=0; block < kmer.size(); ++block) {
                 kmers_output.push_back(kmer[block]); // FIXME: check if kmer_output is big endian or little endian
@@ -384,8 +384,16 @@ size_t kmc_read_kmers(const int handle, const uint32_t kmer_num_bits, const uint
                 }
 
             }
+            uint64_t colorint = 0;
+            for (int c = 0; c < 6; ++c)
+                colorint |= color[c] << c;
 
+            std::cout <<"kin:"<<colorint<<":";
+            print_kmers(std::cout, (uint64_t*)&(kmers_output[kmers_output.size() - 1]) , 1, k);
+            
+            
 
+            color.reset();            
             // now initialize our current state with the top
             current = pop_replace(queue, kmer_data_bases, k);
             //std::cout << "current = " << print_entry(current) << " = queue.pop()" << std::endl;

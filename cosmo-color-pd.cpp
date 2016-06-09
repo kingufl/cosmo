@@ -490,43 +490,70 @@ void dump_node(debruijn_graph<> dbg, rrr_vector<63> &colors, ssize_t v)
     std::cout << " orientation 0 { ";
     // for each outgoing edge
     std::set<char> outedges;
-    for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) {
+    unsigned long long last_outgoing_symbol = 0;
+
+    for (unsigned long symbol_iter = 1; symbol_iter < dbg.sigma + 1; symbol_iter++) {
 
             // if there exists an outgoing edge for that symbol
-            ssize_t next_edge = dbg.outgoing_edge(v, x2);
+            ssize_t outgoing_edge = dbg.outgoing_edge(v, symbol_iter);
             // for each color
 //            for (int c = 0; c < 6; ++c) {
-                if (next_edge != -1) {
-                    //                  if (colors[next_edge * num_colors + c]) {
-                        outedges.insert(dna_bases[x2]);
+                if (outgoing_edge != -1) {
+                    last_outgoing_symbol = symbol_iter;
+                    uint64_t node_colors = 0;
+                    for (int c = 0; c < num_colors; c++)
+                        node_colors |= colors[outgoing_edge * num_colors + c] << c;
+
+            // and if any colors of that edge match the sample set of colors, increment the out degree counter
+//                    if (node_colors & sample_mask) {
+                    std::cout << dna_bases[symbol_iter] << node_colors << "(" << outgoing_edge <<")";
+                    
+                    //                  if (colors[outgoing_edge * num_colors + c]) {
+                        //outedges.insert(dna_bases[symbol_iter]);
 //                    }
 //                }
             }
         }
 
-    for(std::set<char>::iterator it = outedges.begin(); it != outedges.end(); ++it)
-        std::cout << *it;
+    // for(std::set<char>::iterator it = outedges.begin(); it != outedges.end(); ++it)
+    //     std::cout << *it;
 
     
 
     // in edges
-    std::cout << "} orientation 1 { ";
+    std::cout << "}";
+    std::cout << " orientation 1 { ";
     std::set<char> inedges;
-    for (unsigned long x2 = 1; x2 < dbg.sigma + 1; x2++) {
-
+    for (unsigned long symbol_iter = 1; symbol_iter < dbg.sigma + 1; symbol_iter++) {
+            ssize_t incoming_edge = dbg.incoming(v, symbol_iter);
+            if (incoming_edge != -1) {
             // if there exists an outgoing edge for that symbol
-            ssize_t next_edge = dbg.incoming(v, x2);
-            if (next_edge != -1) {
+                ssize_t last_outgoing_edge = dbg.outgoing_edge(v, last_outgoing_symbol);
+                std::string incoming_label = dbg.edge_label(incoming_edge);
+                std::string outgoing_label = dbg.edge_label(last_outgoing_symbol);
+                
+                if (last_outgoing_edge != -1 && (outgoing_label.substr(1).compare(incoming_label.substr(0, incoming_label.size() - 1)))) {
+                    std::cout << std::endl << "ERROR: incompatible edges incident to the same node" << std::endl;
+                    std::cout << " outgoing edge:" << outgoing_label << std::endl;
+                    std::cout << " incoming edge:" << incoming_label << std::endl;
+                    assert(!"invalid incoming/outgoing edge combination\n");
+                }
+                uint64_t node_colors = 0;
+                for (int c = 0; c < num_colors; c++)
+                    node_colors |= colors[incoming_edge * num_colors + c] << c;
+
+                std::cout << dna_bases[symbol_iter] << node_colors << "(" << incoming_edge <<")";
+                    
                 //              for (int c = 0; c < 6; ++c) {
-//                    if( colors[next_edge * num_colors + c]) {
-                        inedges.insert(dna_bases[x2]);
+//                    if( colors[incoming_edge * num_colors + c]) {
+//                        inedges.insert(dna_bases[symbol_iter]);
 //                    }
 //                }
             }
     }
 
-    for(std::set<char>::iterator it = inedges.begin(); it != inedges.end(); ++it)
-        std::cout << *it;
+    // for(std::set<char>::iterator it = inedges.begin(); it != inedges.end(); ++it)
+    //     std::cout << *it;
 
 
     std::cout << "}" << std::endl;

@@ -97,6 +97,10 @@ int main(int argc, char * argv[]) {
   for (size_t i=0; i < num_edges; i++) {
       color_bv value;
       deserialize_color_bv(colorfile, value);
+      uint64_t colorint = 0;
+      for (int c = 0; c < 6; ++c)
+          colorint |= value[c] << c;
+      std::cout << "val:" << colorint << std::endl;
       for (size_t j=0; j < num_color; j++) {
           b[i*num_color + j] = value[j];
           if (b[i*num_color + j] == 0)
