@@ -370,13 +370,23 @@ void find_divergent_paths(debruijn_graph<> dbg, rrr_vector<63> &colors, uint64_t
 {
     int variant_num = 0;
     int num_colors = colors.size() / dbg.num_edges();
-    ssize_t first_node =  get_first_node(dbg, colors, ref_color, ref_fasta_content);
+    unsigned node_label_size = dbg.k - 1;
+    std::string first_node_label(ref_fasta_content.substr(0, node_label_size + 1));
+
+
+    auto node = dbg.index(first_node_label.begin());
+    std::cerr << "dbg.index('" << first_node_label << "') = (" << get<0>(*node) << ", "  << get<1>(*node) << ")" << std::endl;
+    ssize_t first_node =  dbg._edge_to_node(get<0>(*node));
+    std::cerr << "first_node label = " << dbg.node_label(first_node) << std::endl;
+//    std::cerr << "first_node *EDGE* label = " << dbg.edge_label(first_node) << std::endl;
+//    ssize_t first_node =  get_first_node(dbg, colors, ref_color, ref_fasta_content);
+
 
     // all these are for KMC's K=31
 //    ssize_t first_node = 1875943; // get_first_node(dbg, colors, ref_color, ref_fasta_content);
 //    ssize_t first_node = 2383686; // get_first_node(dbg, colors, ref_color, ref_fasta_content);
 //    ssize_t first_node = 411788; // get_first_node(dbg, colors, ref_color, ref_fasta_content);    
-    unsigned node_label_size = dbg.k - 1;
+
     
     ssize_t node_i = first_node; // cdbg node labeled with a k-mer existing in the reference sequence
     ssize_t node_i_pos = 0;  // starting position in the reference sequence for the above k-mer
@@ -723,9 +733,9 @@ int main(int argc, char* argv[]) {
   cerr << "Bits per edge : " << bits_per_element(dbg) << " Bits" << endl;
   cerr << "Color size    : " << size_in_mega_bytes(colors) << " MB" << endl;
 
-  std::cout << "BEGIN dump_graph" << std::endl;
-  dump_graph(dbg, colors);
-  std::cout << "END dump_graph" << std::endl;
+  // std::cout << "BEGIN dump_graph" << std::endl;
+  // dump_graph(dbg, colors);
+  // std::cout << "END dump_graph" << std::endl;
   
   //dump_nodes(dbg, colors);
   //dump_edges(dbg, colors);
